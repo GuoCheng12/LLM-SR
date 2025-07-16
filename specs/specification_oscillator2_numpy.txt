@@ -30,11 +30,11 @@ def evaluate(data: dict) -> float:
     # Return evaluation score
     optimized_params = result.x
     loss = result.fun
-
+    params_values = [p.item() for p in model.params]
     if np.isnan(loss) or np.isinf(loss):
-        return None
+        return None, None
     else:
-        return -loss
+        return -loss, params_values
 
 
 

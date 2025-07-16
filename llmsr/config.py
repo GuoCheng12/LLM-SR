@@ -59,7 +59,7 @@ class Config:
     num_samplers: int = 1 
     num_evaluators: int = 1
     samples_per_prompt: int = 4
-    evaluate_timeout_seconds: int = 30  
+    evaluate_timeout_seconds: int = 100
     use_api: bool = False
     api_model: str = "gpt-3.5-turbo"
 

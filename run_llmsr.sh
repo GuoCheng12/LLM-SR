@@ -8,7 +8,7 @@
 # oscillation 2
 # python main.py --use_api True --api_model "gpt-3.5-turbo" --problem_name oscillator2 --spec_path ./specs/specification_oscillator2_numpy.txt --log_path ./logs/oscillator2_gpt3.5
 # python main.py --use_api True --api_model "gpt-4o" --problem_name oscillator2 --spec_path ./specs/specification_oscillator2_numpy.txt --log_path ./logs/oscillator2_gpt4o
-
+python main.py --use_api True --api_model "gpt-3.5-turbo" --problem_name oscillator_noise --spec_path ./specs/specification_oscillator2_noise_torch.txt --log_path ./logs/oscillator2_gpt3.5_noisy_data
 
 # bacterial-growth
 # python main.py --use_api True --api_model "gpt-3.5-turbo" --problem_name bactgrow --spec_path ./specs/specification_bactgrow_numpy.txt --log_path ./logs/bactgrow_gpt3.5

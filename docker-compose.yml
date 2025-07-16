@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  llmsr:
+    build: .
+    image: llmsr:latest
+    container_name: llmsr_container
+    
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Volume mounts
+    volumes:
+      - ./logs:/workspace/logs
+      - ./data:/workspace/data
+      - ./specs:/workspace/specs
+      - ./models:/workspace/models  # For local LLM models
+      
+    # Environment variables
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONPATH=/workspace
+      - API_KEY=${API_KEY:-}  # Set this in .env file or environment
+      
+    # Port mapping for local LLM server
+    ports:
+      - "5000:5000"
+      
+    # Keep container running
+    tty: true
+    stdin_open: true
+    
+    # Working directory
+    working_dir: /workspace
+    
+    # Command
+    command: bash
+    
+  # Optional: TensorBoard service for monitoring
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: tensorboard_container
+    volumes:
+      - ./logs:/logs
+    ports:
+      - "6006:6006"
+    command: tensorboard --logdir=/logs --host=0.0.0.0 --port=6006
+    depends_on:
+      - llmsr

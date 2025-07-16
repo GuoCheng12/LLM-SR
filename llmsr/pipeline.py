@@ -15,7 +15,7 @@
 
 """ Implementation of the LLMSR pipeline. """
 from __future__ import annotations
-
+import pdb
 # from collections.abc import Sequence
 from typing import Any, Tuple, Sequence
 
@@ -55,6 +55,7 @@ def main(
         class_config: config_lib.ClassConfig,
         **kwargs
 ):
+
     """ Launch a LLMSR experiment.
     Args:
         specification: the boilerplate code for the problem.
@@ -64,7 +65,7 @@ def main(
     """
     function_to_evolve, function_to_run = _extract_function_names(specification)
     template = code_manipulation.text_to_program(specification)
-    database = buffer.ExperienceBuffer(config.experience_buffer, template, function_to_evolve)
+    database = buffer.ExperienceBuffer(config.experience_buffer, template, function_to_evolve, specification)
 
     # get log_dir and create profiler
     log_dir = kwargs.get('log_dir', None)
@@ -84,7 +85,6 @@ def main(
             timeout_seconds=config.evaluate_timeout_seconds,
             sandbox_class=class_config.sandbox_class
         ))
-
     initial = template.get_function(function_to_evolve).body
     evaluators[0].analyse(initial, island_id=None, version_generated=None, profiler=profiler)
 
@@ -95,7 +95,6 @@ def main(
                                 llm_class=class_config.llm_class,
                                 config = config) 
                                 for _ in range(config.num_samplers)]
-
     # This loop can be executed in parallel on remote sampler machines. As each
     # sampler enters an infinite loop, without parallelization only the first
     # sampler will do any work.

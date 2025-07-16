@@ -1,0 +1,102 @@
+""" 
+Find the mathematical function skeleton that represents the deterministic acceleration in a damped nonlinear oscillator system with a driving force, given data on time, position, and velocity. The position and velocity data are noisy, affected by Gaussian noise sampled from a distribution with mean 0 and standard deviation 0.05, but the function should model the underlying noise-free dynamics. The function must consist only of differentiable, deterministic mathematical terms (e.g., polynomials, exponentials, trigonometric functions) and should not include stochastic or noise terms.
+This function form can only contain differentiable mathematial terms.
+""" 
+
+
+import torch
+import numpy as np
+#Initialize parameters
+MAX_NPARAMS = 10
+PRAMS_INIT = [torch.nn.Parameter(torch.tensor(1.0)) for _ in range(MAX_NPARAMS)]
+
+
+@evaluate.run
+def evaluate(data: dict) -> tuple[float, list]:
+    """Evaluate the equation on noisy data with dual supervision using GPU.
+
+    Args:
+        data (dict): Contains 'inputs' (t, x, v, sigma_x, sigma_v) and 'outputs' (a, sigma_a).
+
+    Returns:
+        tuple[float, list]: Negative combined loss and optimized parameters, or (None, None) if invalid.
+    """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logging.info(f"Running evaluate on {device}")
+
+    inputs, outputs = data['inputs'], data['outputs']
+    t, x, v, sigma_x, sigma_v = inputs[:, 0], inputs[:, 1], inputs[:, 2], inputs[:, 3], inputs[:, 4]
+    a, sigma_a = outputs[:, 0], outputs[:, 1]
+
+    t = t.detach().to(device)
+    x = x.clone().requires_grad_(True).to(device)
+    v = v.clone().requires_grad_(True).to(device)
+    sigma_x = sigma_x.to(device)
+    sigma_v = sigma_v.to(device)
+    a = a.to(device)
+    sigma_a = sigma_a.to(device)
+
+    LR = 1e-4
+    N_ITERATIONS = 10000
+    PRAMS_INIT = [torch.nn.Parameter(torch.tensor(1.0, device=device)) for _ in range(MAX_NPARAMS)]
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super(Model, self).__init__()
+            self.params = torch.nn.ParameterList(PRAMS_INIT)
+
+        def forward(self, t, x, v):
+            return equation(t, x, v, self.params)
+
+    model = Model().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+
+    for _ in tqdm(range(N_ITERATIONS)):
+        optimizer.zero_grad()
+        y_pred = model(t, x, v)
+        if torch.any(torch.isnan(y_pred)) or torch.any(torch.isinf(y_pred)):
+            logging.error("NaN or Inf detected in y_pred")
+            return None, None
+        value_loss = torch.mean((y_pred - a) ** 2)
+        grad_outputs = torch.ones_like(y_pred)
+        try:
+            gradients = torch.autograd.grad(y_pred, (x, v), grad_outputs=grad_outputs, create_graph=True)
+            grad_x, grad_v = gradients[0], gradients[1]
+            if torch.any(torch.isnan(grad_x)) or torch.any(torch.isnan(grad_v)):
+                logging.error("NaN detected in gradients")
+                return None, None
+        except RuntimeError as e:
+            logging.error(f"Gradient computation failed: {e}")
+            return None, None
+        sigma = torch.stack([sigma_x, sigma_v], dim=-1)
+        grad_norm = torch.sqrt(grad_x**2 + grad_v**2)
+        pred_uncertainty = grad_norm * torch.norm(sigma, dim=-1)
+        uncertainty_loss = torch.mean((pred_uncertainty - sigma_a) ** 2)
+        loss = value_loss + uncertainty_loss
+        if torch.isnan(loss) or torch.isinf(loss):
+            logging.error("NaN or Inf detected in loss")
+            return None, None
+        loss.backward()
+        optimizer.step()
+
+    if torch.isnan(loss).any() or torch.isinf(loss).any():
+        return None, None
+    params_values = [p.item() for p in model.params]
+    return -loss.item(), params_values
+
+
+@equation.evolve
+def equation(t: torch.Tensor, x: torch.Tensor, v: torch.Tensor, params: torch.nn.ParameterList) -> torch.Tensor:
+    """ Mathematical function for acceleration in a damped nonlinear oscillator
+
+    Args:
+        t (torch.Tensor): time.
+        x (torch.Tensor): observations of current position.
+        v (torch.Tensor): observations of velocity.
+        params (torch.nn.ParameterList): List of numeric constants or parameters to be optimized
+
+    Return:
+        torch.Tensor: acceleration as the result of applying the mathematical function to the inputs.
+    """
+    dv = params[0] * t  +  params[1] * x +  params[2] * v + params[3]
+    return dv

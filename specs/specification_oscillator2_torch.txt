@@ -39,12 +39,12 @@ def evaluate(data: dict) -> float:
         loss.backward()
         optimizer.step()
         
-
+    params_values = [p.item() for p in model.params]
     # Return evaluation score
     if torch.isnan(loss).any() or torch.isinf(loss).any():
-        return None
+        return None, None
     else:
-        return -loss.item()
+        return -loss.item(), params_values
 
 
 
