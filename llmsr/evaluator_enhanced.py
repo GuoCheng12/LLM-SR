@@ -253,6 +253,7 @@ class AdaptiveEvaluator(Evaluator):
             
             # Determine execution mode for this group
             use_gpu_mode = self._should_use_gpu_mode(group_data)
+            logging.info(f"Group {group_idx + 1}: use_gpu_mode={use_gpu_mode}")
             
             if use_gpu_mode:
                 result = self._run_gpu_mode(program, function_to_run, function_to_evolve,
@@ -260,6 +261,7 @@ class AdaptiveEvaluator(Evaluator):
             else:
                 # Convert group_data to CPU format (inputs/outputs)
                 cpu_dataset = self._convert_to_cpu_format(group_data)
+                logging.info(f"Group {group_idx + 1}: converted to CPU format with keys: {cpu_dataset.keys()}")
                 result = self._run_cpu_mode(program, function_to_run, function_to_evolve,
                                           cpu_dataset, timeout_seconds, **kwargs)
             
