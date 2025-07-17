@@ -124,6 +124,7 @@ class AdaptiveEvaluator(Evaluator):
         
         if isinstance(dataset, dict):
             dataset_keys = set(dataset.keys())
+            logging.info(f"Dataset keys: {dataset_keys}")
             has_uncertainty = any(indicator in dataset_keys for indicator in uncertainty_indicators)
             
             if has_uncertainty:
@@ -195,6 +196,36 @@ class AdaptiveEvaluator(Evaluator):
         
         return group_datasets
     
+    def _convert_to_cpu_format(self, group_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert group data to CPU format (inputs/outputs structure).
+        
+        Args:
+            group_data: Group data in GPU format
+            
+        Returns:
+            Dataset in CPU format
+        """
+        # Extract time, position, velocity as inputs
+        inputs = np.column_stack([
+            group_data['t'],
+            group_data['datax'],
+            group_data['datav']
+        ])
+        
+        # Acceleration as outputs
+        outputs = group_data['dataa']
+        
+        return {
+            'inputs': inputs,
+            'outputs': outputs,
+            # Keep additional uncertainty data for reference
+            'sigma_x': group_data.get('sigma_x'),
+            'sigma_v': group_data.get('sigma_v'),
+            'sigma_a': group_data.get('sigma_a'),
+            'sigma_total': group_data.get('sigma_total')
+        }
+    
     def _run_multi_group_evaluation(self, program: str, function_to_run: str, 
                                    function_to_evolve: str, group_datasets: List[Dict[str, Any]],
                                    timeout_seconds: int, **kwargs) -> Tuple[Any, Any, bool]:
@@ -227,8 +258,10 @@ class AdaptiveEvaluator(Evaluator):
                 result = self._run_gpu_mode(program, function_to_run, function_to_evolve,
                                           group_data, timeout_seconds, **kwargs)
             else:
+                # Convert group_data to CPU format (inputs/outputs)
+                cpu_dataset = self._convert_to_cpu_format(group_data)
                 result = self._run_cpu_mode(program, function_to_run, function_to_evolve,
-                                          group_data, timeout_seconds, **kwargs)
+                                          cpu_dataset, timeout_seconds, **kwargs)
             
             score, params, runs_ok = result
             
@@ -376,6 +409,9 @@ class AdaptiveEvaluator(Evaluator):
                                        dataset, timeout_seconds, **kwargs)
         else:
             self._stats['cpu_mode_runs'] += 1
+            # Convert to CPU format if needed
+            if 'inputs' not in dataset:
+                dataset = self._convert_to_cpu_format(dataset)
             results = self._run_cpu_mode(program, function_to_run, function_to_evolve, 
                                        dataset, timeout_seconds, **kwargs)
         
