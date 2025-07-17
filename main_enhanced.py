@@ -157,9 +157,17 @@ def setup_enhanced_evaluator(force_cpu: bool = False, timeout_seconds: int = 300
     pipeline.evaluator = evaluator_enhanced  # Replace the module import
     
     # Create a wrapper function to ensure correct Evaluator instantiation
-    def create_enhanced_evaluator(*args, **kwargs):
-        # Extract the arguments that the enhanced evaluator expects
-        return evaluator_enhanced.BasicEvaluator(verbose=True)
+    def create_enhanced_evaluator(database, template, function_to_evolve, function_to_run, inputs, timeout_seconds=60, **kwargs):
+        # Create enhanced evaluator with original parameters
+        enhanced_eval = evaluator_enhanced.BasicEvaluator(verbose=True)
+        # Set the original evaluator parameters
+        enhanced_eval._database = database
+        enhanced_eval._template = template
+        enhanced_eval._function_to_evolve = function_to_evolve
+        enhanced_eval._function_to_run = function_to_run
+        enhanced_eval._inputs = inputs
+        enhanced_eval._timeout_seconds = timeout_seconds
+        return enhanced_eval
     
     # Replace the Evaluator class with our wrapper
     pipeline.evaluator.Evaluator = create_enhanced_evaluator

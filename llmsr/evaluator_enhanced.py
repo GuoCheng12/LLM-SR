@@ -621,10 +621,104 @@ class BasicEvaluator(AdaptiveEvaluator):
         super().__init__(verbose=verbose)
         self._profile = None
         self._function_to_evolve = None
+        self._database = None
+        self._template = None
+        self._inputs = None
+        self._timeout_seconds = 60
     
     def set_profile(self, profile_obj: Any):
         """Set profiling object."""
         self._profile = profile_obj
+    
+    def analyse(self, sample: str, island_id: int | None, version_generated: int | None, **kwargs) -> None:
+        """
+        Analyze a sample and register results in the database.
+        
+        Args:
+            sample: Generated code sample
+            island_id: Island identifier
+            version_generated: Version number
+            **kwargs: Additional arguments
+        """
+        if not self._database or not self._template:
+            logging.error("Database or template not initialized for analyse method")
+            return
+            
+        new_function, program = self._sample_to_program(sample, version_generated, self._template, self._function_to_evolve)
+        scores_per_test = {}
+        params_per_test = {}
+        time_reset = time.time()
+
+        for current_input in self._inputs:
+            score, params, runs_ok = self.run(
+                program, 'evaluate', self._function_to_evolve, self._inputs, current_input, self._timeout_seconds
+            )
+
+            logging.info(f"Run result: score={score}, params={params}, runs_ok={runs_ok}")
+            if runs_ok and not self._calls_ancestor(program, self._function_to_evolve) and score is not None:
+                if not isinstance(score, (int, float, torch.Tensor, np.floating)):
+                    logging.error(f"Invalid evaluate output type: {type(score)}")
+                    raise ValueError('@function.run did not return a numeric score.')
+                if isinstance(score, torch.Tensor):
+                    score = score.item()
+                scores_per_test[current_input] = score
+                params_per_test[current_input] = params
+        
+        evaluate_time = time.time() - time_reset
+        if scores_per_test:
+            self._database.register_program(new_function, island_id, scores_per_test, params_per_test=params_per_test, evaluate_time=evaluate_time, **kwargs)
+        else:
+            profiler = kwargs.get('profiler', None)
+            if profiler:
+                global_sample_nums = kwargs.get('global_sample_nums', None)
+                sample_time = kwargs.get('sample_time', None)
+                new_function.global_sample_nums = global_sample_nums
+                new_function.score = None
+                new_function.params = None
+                new_function.sample_time = sample_time
+                new_function.evaluate_time = evaluate_time
+                profiler.register_function(new_function)
+    
+    def _sample_to_program(self, generated_code: str, version_generated: int | None, template, function_to_evolve: str):
+        """Convert sample to program."""
+        body = self._trim_function_body(generated_code)
+        if version_generated is not None:
+            import llmsr.code_manipulation as code_manipulation
+            body = code_manipulation.rename_function_calls(
+                code=body,
+                source_name=f'{function_to_evolve}_v{version_generated}',
+                target_name=function_to_evolve
+            )
+        program = copy.deepcopy(template)
+        evolved_function = program.get_function(function_to_evolve)
+        evolved_function.body = body
+        return evolved_function, str(program)
+    
+    def _trim_function_body(self, code: str) -> str:
+        """Trim function body from generated code."""
+        if not code:
+            return ''
+        code = f'def fake_function_header():\n{code}'
+        tree = None
+        while tree is None:
+            try:
+                tree = ast.parse(code)
+            except SyntaxError:
+                code = code[:-1]
+                if not code:
+                    return ''
+        visitor = _FunctionLineVisitor('fake_function_header')
+        visitor.visit(tree)
+        body_lines = code.splitlines()[1:visitor.function_end_line]
+        return '\n'.join(body_lines) + '\n\n'
+    
+    def _calls_ancestor(self, program: str, function_to_evolve: str) -> bool:
+        """Check if program calls ancestor functions."""
+        import llmsr.code_manipulation as code_manipulation
+        for name in code_manipulation.get_functions_called(program):
+            if name.startswith(f'{function_to_evolve}_v'):
+                return True
+        return False
     
     def evaluate_programs(self, programs: Sequence[buffer.Function], inputs: dict, test_input: str, timeout_seconds: int, **kwargs) -> None:
         """
