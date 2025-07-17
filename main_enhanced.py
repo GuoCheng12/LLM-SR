@@ -86,7 +86,12 @@ def setup_multi_group_dataset(data_path: str, test_split: str = 'train'):
         Dataset dictionary with path information
     """
     data_path = Path(data_path)
-    split_path = data_path / test_split
+    
+    # If data_path already includes the split (e.g., data/osc2_noise/train), use it directly
+    if data_path.name == test_split:
+        split_path = data_path
+    else:
+        split_path = data_path / test_split
     
     if not split_path.exists():
         raise FileNotFoundError(f"Multi-group data path not found: {split_path}")
