@@ -716,6 +716,13 @@ class BasicEvaluator(AdaptiveEvaluator):
                     return ''
         visitor = _FunctionLineVisitor('fake_function_header')
         visitor.visit(tree)
+        
+        # Check if function was found
+        if visitor._function_end_line is None:
+            logging.warning(f"Could not find function end line in generated code: {code}")
+            # Return the original code without the fake header
+            return '\n'.join(code.splitlines()[1:]) + '\n\n'
+            
         body_lines = code.splitlines()[1:visitor.function_end_line]
         return '\n'.join(body_lines) + '\n\n'
     
