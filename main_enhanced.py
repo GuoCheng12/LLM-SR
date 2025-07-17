@@ -156,6 +156,14 @@ def setup_enhanced_evaluator(force_cpu: bool = False, timeout_seconds: int = 300
     import llmsr.pipeline as pipeline
     pipeline.evaluator = evaluator_enhanced  # Replace the module import
     
+    # Create a wrapper function to ensure correct Evaluator instantiation
+    def create_enhanced_evaluator(*args, **kwargs):
+        # Extract the arguments that the enhanced evaluator expects
+        return evaluator_enhanced.BasicEvaluator(verbose=True)
+    
+    # Replace the Evaluator class with our wrapper
+    pipeline.evaluator.Evaluator = create_enhanced_evaluator
+    
     if force_cpu:
         evaluator.set_force_cpu(True)
         logging.info("Forced CPU mode enabled")
