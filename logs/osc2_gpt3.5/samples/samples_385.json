@@ -1,0 +1,70 @@
+{
+    "sample_order": 385,
+    "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t + params[1] * x + params[2] * v ** 2 + params[3] * np.sin(params[4] * t) + params[5] * np.cos(params[6] * t) + params[7] * x * v + params[8] * np.tanh(params[9] * x)\n    return dv\n\n",
+    "score": -0.020319237613095772,
+    "params": [
+        -0.001492251643114993,
+        -4.313858549320126,
+        0.6947559887841358,
+        -0.15390749122337952,
+        -0.8447273646743546,
+        0.0482609860266401,
+        1.7492006815076784,
+        0.4811806571107978,
+        -0.3648806999981983,
+        -0.011326979146345258
+    ],
+    "top_3_scores": [
+        {
+            "score": -7.623180840613286e-06,
+            "sample_order": 291,
+            "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t**2 + params[1] * x**2 + params[2] * v**2 + params[3] * t * x + params[4] * t * v + params[5] * x * v + params[6] * t + params[7] * x + params[8] * v + params[9] * np.sin(t)\n    return dv",
+            "params": [
+                -1.2122625087687705e-06,
+                -2.495953228332979,
+                -0.010450760028531363,
+                -3.396547156755438e-05,
+                0.0010879041744749774,
+                -1.0085378849085145,
+                5.188536157217152e-05,
+                -5.009626236303188,
+                -0.0731303065001537,
+                0.29978318680381316
+            ]
+        },
+        {
+            "score": -7.623245353750162e-06,
+            "sample_order": 31,
+            "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t + params[1] * x + params[2] * v + params[3] * t * x + params[4] * t * v + params[5] * x * v + params[6] * t**2 + params[7] * x**2 + params[8] * v**2 + params[9] * np.sin(t)\n    return dv",
+            "params": [
+                5.1896020621225775e-05,
+                -5.00961854109476,
+                -0.07312777449260101,
+                -3.415813948018029e-05,
+                0.0010878408030337446,
+                -1.0085507985145272,
+                -1.2124472241909354e-06,
+                -2.4959613070163087,
+                -0.010453110109833397,
+                0.2997832473693987
+            ]
+        },
+        {
+            "score": -7.623245353750162e-06,
+            "sample_order": 32,
+            "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t + params[1] * x + params[2] * v + params[3] * t * x + params[4] * t * v + params[5] * x * v + params[6] * t**2 + params[7] * x**2 + params[8] * v**2 + params[9] * np.sin(t)\n    return dv",
+            "params": [
+                5.1896020621225775e-05,
+                -5.00961854109476,
+                -0.07312777449260101,
+                -3.415813948018029e-05,
+                0.0010878408030337446,
+                -1.0085507985145272,
+                -1.2124472241909354e-06,
+                -2.4959613070163087,
+                -0.010453110109833397,
+                0.2997832473693987
+            ]
+        }
+    ]
+}

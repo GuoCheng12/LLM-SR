@@ -162,8 +162,8 @@ class Island:
             if evaluate_match:
                 evaluate_text = evaluate_match.group(0)
                 # Add debug info
-                print(f"DEBUG: Found evaluate function with decorator: {len(evaluate_text)} chars")
-                print(f"DEBUG: First 200 chars: {evaluate_text[:200]}")
+                # print(f"DEBUG: Found evaluate function with decorator: {len(evaluate_text)} chars")
+                # print(f"DEBUG: First 200 chars: {evaluate_text[:200]}")
         
         # Also extract equation function with decorator for comparison
         equation_text = None
@@ -172,7 +172,7 @@ class Island:
                                      self._original_specification, re.DOTALL)
             if equation_match:
                 equation_text = equation_match.group(0)
-                print(f"DEBUG: Found equation function with decorator: {len(equation_text)} chars")
+                #print(f"DEBUG: Found equation function with decorator: {len(equation_text)} chars")
         
         # Format the names and docstrings of functions to be included in the prompt.
         versioned_functions: list[code_manipulation.Function] = []
@@ -234,11 +234,11 @@ class Island:
         
         final_prompt = '\n'.join(prompt_parts)
         
-        print(f"DEBUG: Final prompt contains {len(versioned_functions)} functions")
-        print(f"DEBUG: Function names: {[getattr(f, 'name', 'unknown') for f in versioned_functions]}")
-        print(f"DEBUG: Final prompt length: {len(final_prompt)}")
-        print(f"DEBUG: Contains @evaluate.run: {'@evaluate.run' in final_prompt}")
-        print(f"DEBUG: Contains def evaluate: {'def evaluate' in final_prompt}")
+        # print(f"DEBUG: Final prompt contains {len(versioned_functions)} functions")
+        # print(f"DEBUG: Function names: {[getattr(f, 'name', 'unknown') for f in versioned_functions]}")
+        # print(f"DEBUG: Final prompt length: {len(final_prompt)}")
+        # print(f"DEBUG: Contains @evaluate.run: {'@evaluate.run' in final_prompt}")
+        # print(f"DEBUG: Contains def evaluate: {'def evaluate' in final_prompt}")
         
         return final_prompt
 

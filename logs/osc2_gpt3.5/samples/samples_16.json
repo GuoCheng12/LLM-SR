@@ -1,0 +1,70 @@
+{
+    "sample_order": 16,
+    "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t + params[1] * x  +  params[2] * v + params[3] + params[4] * v**2\n    return dv\n\n",
+    "score": -0.031490482304110654,
+    "params": [
+        -0.0011744455924143525,
+        -3.8549850879142795,
+        -0.07580368673380478,
+        -0.0016958519262042413,
+        0.6929299780382514,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "top_3_scores": [
+        {
+            "score": -0.0006869749605523638,
+            "sample_order": 12,
+            "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    \"\"\"Final mathematical function for acceleration in a damped nonlinear oscillator with driving force.\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t + params[1] * x + params[2] * v + params[3] * v**2 + params[4] * np.sin(t) + params[5] * np.cos(t)\n    return dv",
+            "params": [
+                -0.0007204662323967207,
+                -5.008745879222754,
+                -0.04197666708507598,
+                0.21194989479093432,
+                0.294358129989389,
+                0.0006386699266071352,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        {
+            "score": -0.000736300937206079,
+            "sample_order": 15,
+            "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator with driving force\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    # Assume a damped nonlinear oscillator with driving force\n    dv = params[0] * t + params[1] * x + params[2] * v + params[3] * np.sin(t)\n    return dv",
+            "params": [
+                -0.000543762499259345,
+                -5.007607173743025,
+                -0.03561099943581653,
+                0.2953429267708121,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        {
+            "score": -0.02641397008559929,
+            "sample_order": 14,
+            "function": "def equation(t: np.ndarray, x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator with driving force\n\n    Args:\n        t: A numpy array representing time.\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    dv = params[0] * t + params[1] * x + params[2] * v + params[3] + params[4] * np.cos(params[5] * t)\n    \n    return dv",
+            "params": [
+                -0.0017761431006414843,
+                -4.143521572954861,
+                -0.10380571382092642,
+                0.03682983513826539,
+                0.11252422373047924,
+                0.8095185789627952,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ]
+        }
+    ]
+}
