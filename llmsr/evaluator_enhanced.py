@@ -370,9 +370,12 @@ class AdaptiveEvaluator(Evaluator):
         if self._detect_multi_group_data(inputs, test_input):
             logging.info("Multi-group data detected, running multi-group evaluation")
             data_path = inputs.get(f'{test_input}_path')
+            logging.info(f"Data path: {data_path}")
             if data_path:
                 group_datasets = self._load_multi_group_data(Path(data_path))
+                logging.info(f"Loaded {len(group_datasets) if group_datasets else 0} groups")
                 if group_datasets:
+                    logging.info(f"First group keys: {list(group_datasets[0].keys()) if group_datasets else 'None'}")
                     results = self._run_multi_group_evaluation(
                         program, function_to_run, function_to_evolve,
                         group_datasets, timeout_seconds, **kwargs
@@ -650,6 +653,10 @@ class BasicEvaluator(AdaptiveEvaluator):
         time_reset = time.time()
 
         for current_input in self._inputs:
+            # Skip path keys in multi-group scenario
+            if current_input.endswith('_path'):
+                continue
+                
             score, params, runs_ok = self.run(
                 program, 'evaluate', self._function_to_evolve, self._inputs, current_input, self._timeout_seconds
             )
