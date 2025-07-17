@@ -136,6 +136,7 @@ class LocalSandbox(Sandbox):
             function_to_run = all_globals_namespace[function_to_run]
             logging.info(f"Executing {function_to_run.__name__} with dataset shape: {dataset['inputs'].shape}")
             results = function_to_run(dataset)
+            
             if not isinstance(results, (tuple, list)) or len(results) != 2:
                 logging.error(f"Invalid evaluate output: expected tuple of (score, params), got {results}")
                 result_queue.put((None, None, False))

@@ -1,0 +1,42 @@
+{
+    "sample_order": 42,
+    "function": "def equation(x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n\n    Args:\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    omega_sq = params[0]**2\n    damping = params[1]\n    return -omega_sq * x - damping * v\n",
+    "score": 15.234567,
+    "params": [
+        2.1,
+        0.5,
+        0.0
+    ],
+    "top_3_scores": [
+        {
+            "score": 18.456789,
+            "sample_order": 38,
+            "function": "def equation(x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    return -params[0] * x - params[1] * v\n",
+            "params": [
+                4.41,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "score": 16.789012,
+            "sample_order": 40,
+            "function": "def equation(x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    return -params[0]**2 * x - params[1] * v\n",
+            "params": [
+                2.1,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "score": 15.234567,
+            "sample_order": 42,
+            "function": "def equation(x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    omega_sq = params[0]**2\n    damping = params[1]\n    return -omega_sq * x - damping * v\n",
+            "params": [
+                2.1,
+                0.5,
+                0.0
+            ]
+        }
+    ]
+}

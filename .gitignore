@@ -1,6 +1,6 @@
-./logs
-./docker-compose.yml
-./Dockerfile
+/logs
+/docker-compose.yml
+/Dockerfile
 
-./simple_test.py
-./test_profile_changes.py
+/simple_test.py
+/test_profile_changes.py
