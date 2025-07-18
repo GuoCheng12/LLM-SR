@@ -69,8 +69,11 @@ def evaluate(data: dict) -> float:
                     logging.error(f"SPEC: Loss became NaN/Inf at iteration {i}: {loss}")
                     return None, None
                     
+                logging.info(f"SPEC: Iteration {i} - calling backward...")
                 loss.backward()
+                logging.info(f"SPEC: Iteration {i} - backward completed, calling optimizer.step...")
                 optimizer.step()
+                logging.info(f"SPEC: Iteration {i} - optimizer.step completed")
                 
                 if i % 1000 == 0:
                     logging.info(f"SPEC: Iteration {i}, loss: {loss.item()}")

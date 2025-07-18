@@ -168,11 +168,17 @@ def setup_enhanced_evaluator(force_cpu: bool = False, timeout_seconds: int = 300
         enhanced_eval._inputs = inputs
         enhanced_eval._timeout_seconds = timeout_seconds
         
-        # Force CPU mode for non-uncertainty tasks
-        force_cpu_mode = force_cpu or not is_uncertainty_task
+        # Force CPU mode for non-uncertainty tasks, but torch specs need GPU mode to avoid multiprocessing issues
+        # Check if this is a torch specification based on global context
+        import sys
+        is_torch_spec = any('torch' in str(arg) for arg in sys.argv if 'spec' in str(arg))
+        
+        force_cpu_mode = force_cpu or (not is_uncertainty_task and not is_torch_spec)
         if force_cpu_mode:
             enhanced_eval.set_force_cpu(True)
-            logging.info(f"Forced CPU mode: spec-based={not is_uncertainty_task}, user-forced={force_cpu}")
+            logging.info(f"Forced CPU mode: spec-based={not is_uncertainty_task}, user-forced={force_cpu}, torch-spec={is_torch_spec}")
+        else:
+            logging.info(f"Using GPU mode: uncertainty={is_uncertainty_task}, torch-spec={is_torch_spec}")
         
         return enhanced_eval
     
