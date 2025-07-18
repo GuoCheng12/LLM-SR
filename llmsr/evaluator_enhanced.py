@@ -529,24 +529,42 @@ class AdaptiveEvaluator(Evaluator):
         This is the original multiprocessing execution logic.
         """
         try:
-            all_globals_namespace = {}
-            exec(program, all_globals_namespace)
-            function_to_run_obj = all_globals_namespace[function_to_run]
+            logging.info(f"CPU mode: Starting evaluation with dataset keys: {list(dataset.keys())}")
+            logging.info(f"CPU mode: Dataset types: {[(k, type(v)) for k, v in dataset.items()]}")
             
-            logging.info(f"CPU mode: Executing {function_to_run_obj.__name__} with dataset shapes: inputs={dataset['inputs'].shape}, outputs={dataset['outputs'].shape}")
+            all_globals_namespace = {}
+            logging.info(f"CPU mode: Executing program...")
+            exec(program, all_globals_namespace)
+            
+            if function_to_run not in all_globals_namespace:
+                logging.error(f"CPU mode: Function '{function_to_run}' not found in program namespace")
+                result_queue.put((None, None, False))
+                return
+                
+            function_to_run_obj = all_globals_namespace[function_to_run]
+            logging.info(f"CPU mode: Found function {function_to_run_obj.__name__}")
+            
+            if 'inputs' in dataset and 'outputs' in dataset:
+                logging.info(f"CPU mode: Dataset shapes - inputs={dataset['inputs'].shape}, outputs={dataset['outputs'].shape}")
+            else:
+                logging.info(f"CPU mode: Dataset in direct format with keys: {list(dataset.keys())}")
+            
+            logging.info(f"CPU mode: Calling {function_to_run_obj.__name__}...")
             results = function_to_run_obj(dataset)
+            logging.info(f"CPU mode: Function returned: {type(results)}, value: {results}")
             
             # Validate results format
             if not isinstance(results, (tuple, list)) or len(results) != 2:
-                logging.error(f"Invalid evaluate output: expected tuple of (score, params), got {results}")
+                logging.error(f"CPU mode: Invalid evaluate output: expected tuple of (score, params), got {results}")
                 result_queue.put((None, None, False))
                 return
             
             score, params = results
+            logging.info(f"CPU mode: Extracted score={score} (type: {type(score)}), params={params} (type: {type(params)})")
             
             # Validate result types
             if not isinstance(score, (int, float, torch.Tensor, np.floating)) or not isinstance(params, (list, tuple)):
-                logging.error(f"Invalid evaluate output types: score={type(score)}, params={type(params)}")
+                logging.error(f"CPU mode: Invalid evaluate output types: score={type(score)}, params={type(params)}")
                 result_queue.put((None, None, False))
                 return
             
@@ -554,6 +572,7 @@ class AdaptiveEvaluator(Evaluator):
             if isinstance(score, torch.Tensor):
                 score = score.item()
             
+            logging.info(f"CPU mode: Final result - score={score}, params={params}")
             result_queue.put((score, params, True))
             
         except Exception as e:

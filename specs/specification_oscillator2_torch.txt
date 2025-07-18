@@ -14,23 +14,34 @@ PRAMS_INIT = [torch.nn.Parameter(torch.tensor(1.0)) for _ in range(MAX_NPARAMS)]
 @evaluate.run
 def evaluate(data: dict) -> float:
     """ Evaluate the equation on data observations."""
+    import logging
+    
+    logging.info(f"SPEC: evaluate() called with data keys: {list(data.keys())}")
+    logging.info(f"SPEC: data types: {[(k, type(v)) for k, v in data.items()]}")
     
     # Load data observations
     if 'inputs' in data and 'outputs' in data:
+        logging.info("SPEC: Using standard inputs/outputs format")
         # Standard format: inputs/outputs (ensure torch tensors)
         inputs = torch.tensor(data['inputs'], dtype=torch.float32) if isinstance(data['inputs'], np.ndarray) else data['inputs']
         outputs = torch.tensor(data['outputs'], dtype=torch.float32) if isinstance(data['outputs'], np.ndarray) else data['outputs']
+        logging.info(f"SPEC: Converted inputs shape: {inputs.shape}, outputs shape: {outputs.shape}")
         t, x, v = inputs[:,0], inputs[:,1], inputs[:,2]
     else:
+        logging.info("SPEC: Using multi-group direct columns format")
         # Multi-group format: direct columns
         t = torch.tensor(data['t'], dtype=torch.float32) if isinstance(data['t'], np.ndarray) else data['t']
         x = torch.tensor(data['datax'], dtype=torch.float32) if isinstance(data['datax'], np.ndarray) else data['datax']
         v = torch.tensor(data['datav'], dtype=torch.float32) if isinstance(data['datav'], np.ndarray) else data['datav']
         outputs = torch.tensor(data['dataa'], dtype=torch.float32) if isinstance(data['dataa'], np.ndarray) else data['dataa']
+        logging.info(f"SPEC: Converted t: {t.shape}, x: {x.shape}, v: {v.shape}, outputs: {outputs.shape}")
     
     # Optimize parameters based on data
     LR = 1e-4
     N_ITERATIONS = 10000
+    
+    logging.info(f"SPEC: Starting optimization with LR={LR}, N_ITERATIONS={N_ITERATIONS}")
+    logging.info(f"SPEC: Data shapes - t: {t.shape}, x: {x.shape}, v: {v.shape}, outputs: {outputs.shape}")
 
     class Model(torch.nn.Module):
         def __init__(self):
@@ -39,22 +50,42 @@ def evaluate(data: dict) -> float:
         def forward(self, t, x, v):
             return equation(t, x, v, self.params)
 
-    model = Model()
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    try:
+        model = Model()
+        optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+        logging.info(f"SPEC: Model and optimizer created successfully")
 
-    for i in range(N_ITERATIONS):
-        optimizer.zero_grad()
-        y_pred = model(t, x, v)
-        loss = torch.mean((y_pred - outputs) ** 2)
-        loss.backward()
-        optimizer.step()
+        for i in range(N_ITERATIONS):
+            optimizer.zero_grad()
+            y_pred = model(t, x, v)
+            loss = torch.mean((y_pred - outputs) ** 2)
+            
+            if torch.isnan(loss) or torch.isinf(loss):
+                logging.error(f"SPEC: Loss became NaN/Inf at iteration {i}: {loss}")
+                return None, None
+                
+            loss.backward()
+            optimizer.step()
+            
+            if i % 1000 == 0:
+                logging.info(f"SPEC: Iteration {i}, loss: {loss.item()}")
         
-    params_values = [p.item() for p in model.params]
-    # Return evaluation score
-    if torch.isnan(loss) or torch.isinf(loss):
+        params_values = [p.item() for p in model.params]
+        final_loss = loss.item()
+        logging.info(f"SPEC: Optimization completed. Final loss: {final_loss}")
+        logging.info(f"SPEC: Final params: {params_values}")
+        
+        # Return evaluation score
+        if torch.isnan(loss) or torch.isinf(loss):
+            logging.error(f"SPEC: Final loss is NaN/Inf: {final_loss}")
+            return None, None
+        else:
+            logging.info(f"SPEC: Returning score: {-final_loss}")
+            return -final_loss, params_values
+            
+    except Exception as e:
+        logging.error(f"SPEC: Exception during optimization: {e}")
         return None, None
-    else:
-        return -loss.item(), params_values
 
 
 
