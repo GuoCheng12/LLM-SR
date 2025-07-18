@@ -17,8 +17,9 @@ def evaluate(data: dict) -> float:
     
     # Load data observations
     if 'inputs' in data and 'outputs' in data:
-        # Standard format: inputs/outputs
-        inputs, outputs = data['inputs'], data['outputs']
+        # Standard format: inputs/outputs (ensure torch tensors)
+        inputs = torch.tensor(data['inputs'], dtype=torch.float32) if isinstance(data['inputs'], np.ndarray) else data['inputs']
+        outputs = torch.tensor(data['outputs'], dtype=torch.float32) if isinstance(data['outputs'], np.ndarray) else data['outputs']
         t, x, v = inputs[:,0], inputs[:,1], inputs[:,2]
     else:
         # Multi-group format: direct columns

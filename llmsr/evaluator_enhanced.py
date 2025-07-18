@@ -206,8 +206,6 @@ class AdaptiveEvaluator(Evaluator):
         Returns:
             Dataset in CPU format
         """
-        import torch
-        
         # Extract time, position, velocity as inputs
         inputs = np.column_stack([
             group_data['t'],
@@ -219,8 +217,8 @@ class AdaptiveEvaluator(Evaluator):
         outputs = group_data['dataa']
         
         return {
-            'inputs': torch.tensor(inputs, dtype=torch.float32),
-            'outputs': torch.tensor(outputs, dtype=torch.float32),
+            'inputs': inputs,  # Keep as numpy array for CPU mode
+            'outputs': outputs,  # Keep as numpy array for CPU mode
             # Keep additional uncertainty data for reference
             'sigma_x': group_data.get('sigma_x'),
             'sigma_v': group_data.get('sigma_v'),
@@ -559,7 +557,12 @@ class AdaptiveEvaluator(Evaluator):
             result_queue.put((score, params, True))
             
         except Exception as e:
-            logging.error(f"CPU mode execution error: {e}\\nProgram:\\n{program}\\nDataset shapes: inputs={dataset['inputs'].shape}, outputs={dataset['outputs'].shape}")
+            try:
+                input_shape = dataset['inputs'].shape if 'inputs' in dataset else 'No inputs'
+                output_shape = dataset['outputs'].shape if 'outputs' in dataset else 'No outputs'
+                logging.error(f"CPU mode execution error: {e}\\nProgram:\\n{program}\\nDataset shapes: inputs={input_shape}, outputs={output_shape}")
+            except:
+                logging.error(f"CPU mode execution error: {e}\\nProgram:\\n{program}\\nDataset type: {type(dataset)}")
             result_queue.put((None, None, False))
     
     def _get_results(self, queue: multiprocessing.Queue) -> Tuple[Any, Any, bool]:
