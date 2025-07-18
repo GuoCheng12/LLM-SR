@@ -167,14 +167,17 @@ def setup_enhanced_evaluator(force_cpu: bool = False, timeout_seconds: int = 300
         enhanced_eval._function_to_run = function_to_run
         enhanced_eval._inputs = inputs
         enhanced_eval._timeout_seconds = timeout_seconds
+        
+        # Force CPU mode for non-uncertainty tasks
+        force_cpu_mode = force_cpu or not is_uncertainty_task
+        if force_cpu_mode:
+            enhanced_eval.set_force_cpu(True)
+            logging.info(f"Forced CPU mode: spec-based={not is_uncertainty_task}, user-forced={force_cpu}")
+        
         return enhanced_eval
     
     # Replace the Evaluator class with our wrapper
     pipeline.evaluator.Evaluator = create_enhanced_evaluator
-    
-    if force_cpu:
-        evaluator.set_force_cpu(True)
-        logging.info("Forced CPU mode enabled")
     
     # Set custom timeout
     evaluator._timeout_seconds = timeout_seconds
@@ -244,9 +247,10 @@ if __name__ == '__main__':
         logging.info(f"Multi-group mode: using data from {args.data_path}")
         dataset = setup_multi_group_dataset(args.data_path, test_split='train')
         
+        force_cpu_mode = args.force_cpu or not is_uncertainty_task
         print(f"Multi-group dataset configured:")
         print(f"  Data path: {args.data_path}")
-        print(f"  Enhanced evaluator: {'GPU' if not args.force_cpu else 'CPU'} mode")
+        print(f"  Enhanced evaluator: {'CPU' if force_cpu_mode else 'GPU'} mode")
         print(f"  Uncertainty task: {is_uncertainty_task}")
         
     else:

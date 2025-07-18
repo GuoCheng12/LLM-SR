@@ -4,6 +4,7 @@ This function form can only contain differentiable mathematial terms.
 """
 
 import torch
+import numpy as np
 
 #Initialize parameters
 MAX_NPARAMS = 10
@@ -15,8 +16,16 @@ def evaluate(data: dict) -> float:
     """ Evaluate the equation on data observations."""
     
     # Load data observations
-    inputs, outputs = data['inputs'], data['outputs']
-    t, x, v = inputs[:,0], inputs[:,1], inputs[:,2]
+    if 'inputs' in data and 'outputs' in data:
+        # Standard format: inputs/outputs
+        inputs, outputs = data['inputs'], data['outputs']
+        t, x, v = inputs[:,0], inputs[:,1], inputs[:,2]
+    else:
+        # Multi-group format: direct columns
+        t = torch.tensor(data['t'], dtype=torch.float32) if isinstance(data['t'], np.ndarray) else data['t']
+        x = torch.tensor(data['datax'], dtype=torch.float32) if isinstance(data['datax'], np.ndarray) else data['datax']
+        v = torch.tensor(data['datav'], dtype=torch.float32) if isinstance(data['datav'], np.ndarray) else data['datav']
+        outputs = torch.tensor(data['dataa'], dtype=torch.float32) if isinstance(data['dataa'], np.ndarray) else data['dataa']
     
     # Optimize parameters based on data
     LR = 1e-4
