@@ -57,7 +57,7 @@ class Profiler:
         params = programs.params
         content = {
             'sample_order': sample_order,
-            'function': function_str,
+            'function': f'equation_v{sample_order}',  # Only record function name, not full code
             'score': score,
             'params': params,
             'top_3_scores': self._top_3_scores
@@ -79,7 +79,7 @@ class Profiler:
                 score_entry = {
                     'score': programs.score,
                     'sample_order': sample_orders,
-                    'function': str(programs).strip(),
+                    'function': f'equation_v{sample_orders}',  # Only record function name, not full code
                     'params': programs.params
                 }
                 self._top_3_scores.append(score_entry)
