@@ -57,7 +57,7 @@ class Profiler:
         params = programs.params
         content = {
             'sample_order': sample_order,
-            'function': f'equation_v{sample_order}',  # Only record function name, not full code
+            'function': self._extract_equation_body(programs),
             'score': score,
             'params': params,
             'top_3_scores': self._top_3_scores
@@ -66,6 +66,42 @@ class Profiler:
         with open(path, 'w', encoding='utf-8') as json_file:
             json.dump(content, json_file, indent=4, ensure_ascii=False)
 
+    def _extract_equation_body(self, programs: code_manipulation.Function) -> str:
+        """
+        Extract the mathematical equation from the function body.
+        """
+        try:
+            function_str = str(programs)
+            lines = function_str.split('\n')
+            
+            # Find lines that contain the main equation logic
+            equation_lines = []
+            for line in lines:
+                stripped = line.strip()
+                if stripped and not stripped.startswith('#') and not stripped.startswith('"""') and not stripped.startswith('def ') and not stripped.startswith('return '):
+                    # Skip imports, docstrings, function definitions
+                    if not any(keyword in stripped for keyword in ['import ', 'Args:', 'Returns:', 'Return:', 'torch.Tensor']):
+                        equation_lines.append(stripped)
+            
+            # Get the return statement
+            return_line = None
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith('return '):
+                    return_line = stripped.replace('return ', '')
+                    break
+            
+            if return_line:
+                return return_line
+            elif equation_lines:
+                # If no explicit return, take the last meaningful line
+                return equation_lines[-1]
+            else:
+                return f"equation_v{programs.global_sample_nums}"
+                
+        except Exception as e:
+            return f"equation_v{programs.global_sample_nums}"
+    
     def register_function(self, programs: code_manipulation.Function):
         if self._max_log_nums is not None and self._num_samples >= self._max_log_nums:
             return
@@ -79,7 +115,7 @@ class Profiler:
                 score_entry = {
                     'score': programs.score,
                     'sample_order': sample_orders,
-                    'function': f'equation_v{sample_orders}',  # Only record function name, not full code
+                    'function': self._extract_equation_body(programs),
                     'params': programs.params
                 }
                 self._top_3_scores.append(score_entry)
