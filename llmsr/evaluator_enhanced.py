@@ -575,8 +575,12 @@ class AdaptiveEvaluator(Evaluator):
         Print evaluation details for debugging.
         """
         print('================= Evaluated Program =================')
-        function = code_manipulation.text_to_program(program).get_function(kwargs.get('func_to_evolve', 'equation'))
-        print(f'{str(function).strip()}\\n-----------------------------------------------------')
+        try:
+            function = code_manipulation.text_to_program(program).get_function(kwargs.get('func_to_evolve', 'equation'))
+            print(f'{str(function).strip()}\\n-----------------------------------------------------')
+        except Exception as e:
+            logging.warning(f"Could not parse program for display: {e}")
+            print(f'[Program parsing failed: {e}]\\n-----------------------------------------------------')
         print(f'Results: {results}\\n=====================================================\\n\\n')
     
     def set_force_cpu(self, force: bool):
