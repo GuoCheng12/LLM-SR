@@ -41,7 +41,7 @@ def evaluate(data: dict) -> float:
         
     params_values = [p.item() for p in model.params]
     # Return evaluation score
-    if torch.isnan(loss).any() or torch.isinf(loss).any():
+    if torch.isnan(loss) or torch.isinf(loss):
         return None, None
     else:
         return -loss.item(), params_values

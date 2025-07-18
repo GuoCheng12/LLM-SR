@@ -206,6 +206,8 @@ class AdaptiveEvaluator(Evaluator):
         Returns:
             Dataset in CPU format
         """
+        import torch
+        
         # Extract time, position, velocity as inputs
         inputs = np.column_stack([
             group_data['t'],
@@ -217,8 +219,8 @@ class AdaptiveEvaluator(Evaluator):
         outputs = group_data['dataa']
         
         return {
-            'inputs': inputs,
-            'outputs': outputs,
+            'inputs': torch.tensor(inputs, dtype=torch.float32),
+            'outputs': torch.tensor(outputs, dtype=torch.float32),
             # Keep additional uncertainty data for reference
             'sigma_x': group_data.get('sigma_x'),
             'sigma_v': group_data.get('sigma_v'),
