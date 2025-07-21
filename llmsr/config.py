@@ -53,6 +53,7 @@ class Config:
        num_evaluators (int): Number of parallel evaluators
        samples_per_prompt (int): Number of hypotheses per prompt
        evaluate_timeout_seconds (int): Hypothesis evaluation timeout
+       gpu_batch_size (int): Batch size for GPU evaluation
        use_api (bool): API usage flag
    """
     experience_buffer: ExperienceBufferConfig = dataclasses.field(default_factory=ExperienceBufferConfig)
@@ -60,6 +61,7 @@ class Config:
     num_evaluators: int = 1
     samples_per_prompt: int = 4
     evaluate_timeout_seconds: int = 60
+    gpu_batch_size: int = 4
     use_api: bool = False
     api_model: str = "gpt-3.5-turbo"
 

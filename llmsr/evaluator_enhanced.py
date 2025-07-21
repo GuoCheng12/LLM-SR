@@ -86,12 +86,14 @@ class AdaptiveEvaluator(Evaluator):
     - Automatic uncertainty task detection
     - GPU mode for uncertainty-aware tasks (no multiprocessing)
     - CPU mode for standard tasks (multiprocessing enabled)
+    - Batch GPU evaluation for improved efficiency
     - Backward compatibility with original interface
     """
     
-    def __init__(self, verbose: bool = False, timeout_seconds: int = 120):
+    def __init__(self, verbose: bool = False, timeout_seconds: int = 120, batch_size: int = 4):
         self._verbose = verbose
         self._timeout_seconds = timeout_seconds
+        self._batch_size = batch_size
         self._gpu_available = torch.cuda.is_available()
         self._force_cpu = False
         self._stats = {
@@ -100,12 +102,18 @@ class AdaptiveEvaluator(Evaluator):
             'total_runs': 0,
             'gpu_failures': 0,
             'cpu_failures': 0,
+            'batch_runs': 0,
+            'batch_efficiency': 0.0,
         }
+        
+        # Batch processing queue
+        self._batch_queue = []
+        self._batch_results = {}
         
         # Original evaluator compatibility
         self._numba_accelerate = False
         
-        logging.info(f"AdaptiveEvaluator initialized - GPU available: {self._gpu_available}")
+        logging.info(f"AdaptiveEvaluator initialized - GPU available: {self._gpu_available}, batch_size: {self._batch_size}")
         
         if not torch.cuda.is_available():
             logging.warning("CUDA not available, evaluate will run on CPU")
@@ -342,6 +350,138 @@ class AdaptiveEvaluator(Evaluator):
             return False
             
         return self._detect_uncertainty_task(dataset)
+    
+    def evaluate_batch_gpu(self, evaluation_tasks: List[Dict[str, Any]], **kwargs) -> List[Tuple[Any, Any, bool]]:
+        """
+        Batch GPU evaluation for improved efficiency.
+        
+        Args:
+            evaluation_tasks: List of evaluation task dictionaries containing:
+                - program: Program code to execute
+                - function_to_run: Function name to run
+                - function_to_evolve: Function name to evolve
+                - dataset: Input dataset
+                - timeout_seconds: Timeout in seconds
+                - task_id: Unique identifier for the task
+            **kwargs: Additional arguments
+            
+        Returns:
+            List of tuples (score, params, success_flag) corresponding to each task
+        """
+        if not evaluation_tasks:
+            return []
+            
+        self._stats['batch_runs'] += 1
+        batch_start_time = time.time()
+        
+        logging.info(f"Starting batch GPU evaluation of {len(evaluation_tasks)} tasks")
+        
+        results = []
+        successful_tasks = 0
+        
+        try:
+            # Process all tasks in the batch sequentially but with optimized GPU memory management
+            with torch.cuda.device(0) if torch.cuda.is_available() else torch.no_grad():
+                for i, task in enumerate(evaluation_tasks):
+                    logging.info(f"Processing batch task {i+1}/{len(evaluation_tasks)}")
+                    
+                    try:
+                        result = self._run_single_gpu_task(
+                            task['program'], 
+                            task['function_to_run'],
+                            task['function_to_evolve'],
+                            task['dataset'],
+                            task.get('timeout_seconds', self._timeout_seconds),
+                            **kwargs
+                        )
+                        
+                        if result[2]:  # success
+                            successful_tasks += 1
+                            
+                        results.append(result)
+                        
+                        # Clear intermediate GPU memory after each task
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            
+                    except Exception as e:
+                        logging.error(f"Batch task {i+1} failed: {e}")
+                        results.append((None, None, False))
+                        
+        finally:
+            # Final GPU memory cleanup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        
+        batch_time = time.time() - batch_start_time
+        efficiency = successful_tasks / len(evaluation_tasks) if evaluation_tasks else 0.0
+        self._stats['batch_efficiency'] = (self._stats['batch_efficiency'] * (self._stats['batch_runs'] - 1) + efficiency) / self._stats['batch_runs']
+        
+        logging.info(f"Batch evaluation completed: {successful_tasks}/{len(evaluation_tasks)} tasks succeeded in {batch_time:.2f}s")
+        
+        return results
+    
+    def _run_single_gpu_task(self, program: str, function_to_run: str, function_to_evolve: str,
+                            dataset: Dict[str, Any], timeout_seconds: int, **kwargs) -> Tuple[Any, Any, bool]:
+        """
+        Run a single GPU task with optimized memory management.
+        
+        Args:
+            program: Program code to execute
+            function_to_run: Function name to run
+            function_to_evolve: Function name to evolve
+            dataset: Input dataset
+            timeout_seconds: Timeout in seconds
+            **kwargs: Additional arguments
+            
+        Returns:
+            Tuple of (score, params, success_flag)
+        """
+        try:
+            # Set up timeout signal handler
+            def timeout_handler(signum, frame):
+                raise TimeoutError("GPU task execution timed out")
+            
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout_seconds)
+            
+            try:
+                # Execute directly in main process (no multiprocessing)
+                all_globals_namespace = {}
+                exec(program, all_globals_namespace)
+                function_to_run_obj = all_globals_namespace[function_to_run]
+                
+                logging.debug(f"GPU task: Executing {function_to_run_obj.__name__}")
+                results = function_to_run_obj(dataset)
+                
+                # Validate results format
+                if not isinstance(results, (tuple, list)) or len(results) != 2:
+                    logging.error(f"Invalid evaluate output: expected tuple of (score, params), got {results}")
+                    return (None, None, False)
+                
+                score, params = results
+                
+                # Validate result types
+                if not isinstance(score, (int, float, torch.Tensor, np.floating)) or not isinstance(params, (list, tuple)):
+                    logging.error(f"Invalid evaluate output types: score={type(score)}, params={type(params)}")
+                    return (None, None, False)
+                
+                # Convert tensor to scalar if needed
+                if isinstance(score, torch.Tensor):
+                    score = score.item()
+                
+                signal.alarm(0)  # Cancel timeout
+                return (score, params, True)
+                
+            except TimeoutError:
+                logging.error(f"GPU task execution timed out after {timeout_seconds} seconds")
+                return (None, None, False)
+            
+        except Exception as e:
+            logging.error(f"GPU task execution error: {e}")
+            return (None, None, False)
+        finally:
+            signal.alarm(0)  # Ensure timeout is canceled
     
     def timeout_handler(self, signum, frame):
         """Original timeout handler for backward compatibility."""
@@ -764,7 +904,7 @@ class BasicEvaluator(AdaptiveEvaluator):
     
     def evaluate_programs(self, programs: Sequence[buffer.Function], inputs: dict, test_input: str, timeout_seconds: int, **kwargs) -> None:
         """
-        Evaluate multiple programs and update their scores.
+        Evaluate multiple programs and update their scores with batch optimization.
         
         Args:
             programs: Sequence of Function objects to evaluate
@@ -774,7 +914,92 @@ class BasicEvaluator(AdaptiveEvaluator):
             **kwargs: Additional arguments
         """
         self._function_to_evolve = kwargs.get('func_to_evolve', 'equation')
+        dataset = inputs[test_input]
         
+        # Collect unevaluated programs
+        unevaluated_programs = [p for p in programs if p.score is None]
+        
+        if not unevaluated_programs:
+            logging.info("All programs already evaluated, skipping")
+            return
+        
+        # Check if we should use batch GPU evaluation
+        use_gpu_mode = self._should_use_gpu_mode(dataset)
+        
+        if use_gpu_mode and len(unevaluated_programs) >= 2:
+            # Use batch GPU evaluation for efficiency
+            logging.info(f"Using batch GPU evaluation for {len(unevaluated_programs)} programs")
+            self._evaluate_programs_batch_gpu(unevaluated_programs, inputs, test_input, timeout_seconds, **kwargs)
+        else:
+            # Fall back to individual evaluation
+            logging.info(f"Using individual evaluation for {len(unevaluated_programs)} programs")
+            self._evaluate_programs_individual(unevaluated_programs, inputs, test_input, timeout_seconds, **kwargs)
+    
+    def _evaluate_programs_batch_gpu(self, programs: List[buffer.Function], inputs: dict, test_input: str, timeout_seconds: int, **kwargs) -> None:
+        """
+        Evaluate programs using batch GPU processing.
+        
+        Args:
+            programs: List of Function objects to evaluate
+            inputs: Input data
+            test_input: Test input key
+            timeout_seconds: Timeout in seconds
+            **kwargs: Additional arguments
+        """
+        dataset = inputs[test_input]
+        
+        # Process programs in batches
+        for batch_start in range(0, len(programs), self._batch_size):
+            batch_end = min(batch_start + self._batch_size, len(programs))
+            batch_programs = programs[batch_start:batch_end]
+            
+            logging.info(f"Processing batch {batch_start//self._batch_size + 1}: programs {batch_start+1}-{batch_end}")
+            
+            # Prepare evaluation tasks for this batch
+            evaluation_tasks = []
+            for program in batch_programs:
+                task = {
+                    'program': program.code,
+                    'function_to_run': 'evaluate',
+                    'function_to_evolve': self._function_to_evolve,
+                    'dataset': dataset,
+                    'timeout_seconds': timeout_seconds,
+                    'program_obj': program  # Keep reference to original program object
+                }
+                evaluation_tasks.append(task)
+            
+            # Run batch evaluation
+            results = self.evaluate_batch_gpu(evaluation_tasks, **kwargs)
+            
+            # Update program scores with results
+            for task, result in zip(evaluation_tasks, results):
+                program = task['program_obj']
+                score, params, runs_ok = result
+                
+                if runs_ok and not self._calls_ancestor(program.code, self._function_to_evolve) and score is not None:
+                    program.score = score
+                    
+                    # Update profiling if available
+                    if self._profile is not None:
+                        self._profile.register_evaluated_program(program, score)
+                else:
+                    # Set score to None for failed evaluations
+                    if self._profile is not None:
+                        failed_program = copy.deepcopy(program)
+                        failed_program.score = None
+                        self._profile.register_evaluated_program(failed_program, None)
+    
+    def _evaluate_programs_individual(self, programs: List[buffer.Function], inputs: dict, test_input: str, timeout_seconds: int, **kwargs) -> None:
+        """
+        Evaluate programs individually (fallback method).
+        
+        Args:
+            programs: List of Function objects to evaluate
+            inputs: Input data
+            test_input: Test input key
+            timeout_seconds: Timeout in seconds
+            **kwargs: Additional arguments
+        """
         for program in programs:
             if program.score is not None:
                 continue  # Skip already evaluated programs

@@ -76,15 +76,31 @@ def main(
 
     evaluators = []
     for _ in range(config.num_evaluators):
-        evaluators.append(evaluator.Evaluator(
-            database,
-            template,
-            function_to_evolve,
-            function_to_run,
-            inputs,
-            timeout_seconds=config.evaluate_timeout_seconds,
-            sandbox_class=class_config.sandbox_class
-        ))
+        # Check if we're using enhanced evaluator with batch support
+        if hasattr(class_config.sandbox_class, '__name__') and 'Enhanced' in str(class_config.sandbox_class):
+            # Use enhanced evaluator with batch support
+            batch_size = getattr(config, 'gpu_batch_size', 4)
+            evaluators.append(evaluator.Evaluator(
+                database,
+                template,
+                function_to_evolve,
+                function_to_run,
+                inputs,
+                timeout_seconds=config.evaluate_timeout_seconds,
+                sandbox_class=class_config.sandbox_class,
+                batch_size=batch_size
+            ))
+        else:
+            # Use original evaluator
+            evaluators.append(evaluator.Evaluator(
+                database,
+                template,
+                function_to_evolve,
+                function_to_run,
+                inputs,
+                timeout_seconds=config.evaluate_timeout_seconds,
+                sandbox_class=class_config.sandbox_class
+            ))
     initial = template.get_function(function_to_evolve).body
     evaluators[0].analyse(initial, island_id=None, version_generated=None, profiler=profiler)
 

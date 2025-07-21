@@ -36,6 +36,7 @@ parser.add_argument('--data_path', type=str, default=None, help="Path to multi-g
 parser.add_argument('--run_id', type=int, default=1)
 parser.add_argument('--force_cpu', type=bool, default=False, help="Force CPU mode")
 parser.add_argument('--timeout_seconds', type=int, default=300, help="Timeout per evaluation")
+parser.add_argument('--batch_size', type=int, default=4, help="Batch size for GPU evaluation")
 
 args = parser.parse_args()
 
@@ -138,28 +139,40 @@ def detect_uncertainty_task(spec_path: str) -> bool:
         logging.warning(f"Could not analyze specification: {e}")
         return False
 
-def setup_enhanced_evaluator(force_cpu: bool = False, timeout_seconds: int = 300):
+def setup_enhanced_evaluator(force_cpu: bool = False, timeout_seconds: int = 300, batch_size: int = 4):
     """
-    Set up enhanced evaluator with appropriate configuration.
+    Set up enhanced evaluator with appropriate configuration including batch support.
     
     Args:
         force_cpu: Force CPU mode
         timeout_seconds: Timeout per evaluation
+        batch_size: Batch size for GPU evaluation
         
     Returns:
         Enhanced evaluator instance
     """
-    # Create enhanced evaluator
+    # Create enhanced evaluator with batch support
     evaluator = evaluator_enhanced.BasicEvaluator(verbose=True)
+    
+    # Configure batch size
+    evaluator._batch_size = batch_size
+    
+    if force_cpu:
+        evaluator.set_force_cpu(True)
+        logging.info(f"Enhanced evaluator configured for CPU mode with batch_size={batch_size}")
+    else:
+        logging.info(f"Enhanced evaluator configured for adaptive mode with batch_size={batch_size}")
     
     # Also patch the pipeline to use enhanced evaluator
     import llmsr.pipeline as pipeline
     pipeline.evaluator = evaluator_enhanced  # Replace the module import
     
-    # Create a wrapper function to ensure correct Evaluator instantiation
+    # Create a wrapper function to ensure correct Evaluator instantiation with batch support
     def create_enhanced_evaluator(database, template, function_to_evolve, function_to_run, inputs, timeout_seconds=60, **kwargs):
-        # Create enhanced evaluator with original parameters
+        # Create enhanced evaluator with original parameters and batch support
         enhanced_eval = evaluator_enhanced.BasicEvaluator(verbose=True)
+        enhanced_eval._batch_size = batch_size
+        
         # Set the original evaluator parameters
         enhanced_eval._database = database
         enhanced_eval._template = template
@@ -222,16 +235,18 @@ if __name__ == '__main__':
     print("Starting Enhanced LLM-SR Experiment")
     print("=" * 50)
     
-    # Setup enhanced evaluator
+    # Setup enhanced evaluator with batch support
     enhanced_evaluator = setup_enhanced_evaluator(
         force_cpu=args.force_cpu,
-        timeout_seconds=args.timeout_seconds
+        timeout_seconds=args.timeout_seconds,
+        batch_size=args.batch_size
     )
     
     # Load config and parameters
     experiment_config = config.Config(
         use_api=args.use_api, 
         api_model=args.api_model,
+        gpu_batch_size=args.batch_size,
     )
     
     # Setup class config with enhanced evaluator
