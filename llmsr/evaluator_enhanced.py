@@ -120,23 +120,31 @@ class AdaptiveEvaluator(Evaluator):
     
     def _detect_uncertainty_task(self, dataset: Dict[str, Any]) -> bool:
         """
-        Detect if this is an uncertainty-aware task requiring GPU mode.
+        Detect if this is an uncertainty-aware task or torch-based task requiring GPU mode.
         
         Args:
             dataset: Input dataset
             
         Returns:
-            True if uncertainty columns are detected
+            True if uncertainty columns are detected or torch tensors are used
         """
         uncertainty_indicators = ['sigma_x', 'sigma_v', 'sigma_a', 'sigma_total']
         
         if isinstance(dataset, dict):
             dataset_keys = set(dataset.keys())
             logging.info(f"Dataset keys: {dataset_keys}")
+            
+            # Check for uncertainty indicators
             has_uncertainty = any(indicator in dataset_keys for indicator in uncertainty_indicators)
+            
+            # Check for torch tensors (which indicate torch-based specification)
+            has_torch_tensors = any(isinstance(v, torch.Tensor) for v in dataset.values())
             
             if has_uncertainty:
                 logging.info("Uncertainty task detected - using GPU sequential mode")
+                return True
+            elif has_torch_tensors:
+                logging.info("Torch tensor data detected - using GPU sequential mode")
                 return True
         
         logging.info("Standard task detected - using CPU multiprocessing mode")
@@ -451,25 +459,36 @@ class AdaptiveEvaluator(Evaluator):
                 exec(program, all_globals_namespace)
                 function_to_run_obj = all_globals_namespace[function_to_run]
                 
-                logging.debug(f"GPU task: Executing {function_to_run_obj.__name__}")
+                logging.info(f"GPU task: Executing {function_to_run_obj.__name__}")
+                logging.info(f"GPU task: Dataset keys: {list(dataset.keys())}")
+                logging.info(f"GPU task: Dataset types: {[(k, type(v)) for k, v in dataset.items()]}")
+                
                 results = function_to_run_obj(dataset)
+                logging.info(f"GPU task: Function returned: {type(results)}, value: {results}")
                 
                 # Validate results format
                 if not isinstance(results, (tuple, list)) or len(results) != 2:
-                    logging.error(f"Invalid evaluate output: expected tuple of (score, params), got {results}")
+                    logging.error(f"GPU task: Invalid evaluate output: expected tuple of (score, params), got {results}")
                     return (None, None, False)
                 
                 score, params = results
+                logging.info(f"GPU task: Extracted score={score} (type: {type(score)}), params={params} (type: {type(params)})")
+                
+                # Handle None results from function execution errors
+                if score is None or params is None:
+                    logging.error(f"GPU task: Function returned None values - score={score}, params={params}")
+                    return (None, None, False)
                 
                 # Validate result types
                 if not isinstance(score, (int, float, torch.Tensor, np.floating)) or not isinstance(params, (list, tuple)):
-                    logging.error(f"Invalid evaluate output types: score={type(score)}, params={type(params)}")
+                    logging.error(f"GPU task: Invalid evaluate output types: score={type(score)}, params={type(params)}")
                     return (None, None, False)
                 
                 # Convert tensor to scalar if needed
                 if isinstance(score, torch.Tensor):
                     score = score.item()
                 
+                logging.info(f"GPU task: Final result - score={score}, params={params}")
                 signal.alarm(0)  # Cancel timeout
                 return (score, params, True)
                 
@@ -479,6 +498,8 @@ class AdaptiveEvaluator(Evaluator):
             
         except Exception as e:
             logging.error(f"GPU task execution error: {e}")
+            import traceback
+            logging.error(f"GPU task traceback: {traceback.format_exc()}")
             return (None, None, False)
         finally:
             signal.alarm(0)  # Ensure timeout is canceled
