@@ -44,10 +44,21 @@ class Profiler:
             'sample time': self._tot_sample_time,
             'evaluate time': self._tot_evaluate_time
         }, global_step=self._num_samples)
-        self._writer.add_text('Best Function String', self._cur_best_program_str, global_step=self._num_samples)
+        # Extract equation skeleton for the best program
+        if self._cur_best_program_sample_order is not None and self._cur_best_program_sample_order in self._all_sampled_functions:
+            best_program = self._all_sampled_functions[self._cur_best_program_sample_order]
+            best_equation_skeleton = self._extract_equation_body(best_program)
+            self._writer.add_text('Best Function String', self._cur_best_program_str, global_step=self._num_samples)
+            self._writer.add_text('Best Equation Skeleton', best_equation_skeleton, global_step=self._num_samples)
+        else:
+            self._writer.add_text('Best Function String', self._cur_best_program_str, global_step=self._num_samples)
         if self._top_3_scores:
-            # 格式化top_3_scores显示
-            top_3_text = "\n".join([f"Rank {i+1}: Score={entry['score']:.6f}, Sample={entry['sample_order']}" for i, entry in enumerate(self._top_3_scores)])
+            # 格式化top_3_scores显示，包含equation信息
+            top_3_text = "\n".join([
+                f"Rank {i+1}: Score={entry['score']:.6f}, Sample={entry['sample_order']}\n"
+                f"Equation: {entry['function']}\n" 
+                for i, entry in enumerate(self._top_3_scores)
+            ])
             self._writer.add_text('Top_3_Scores', top_3_text, global_step=self._num_samples)
 
     def _write_json(self, programs: code_manipulation.Function):
@@ -68,39 +79,65 @@ class Profiler:
 
     def _extract_equation_body(self, programs: code_manipulation.Function) -> str:
         """
-        Extract the mathematical equation from the function body.
+        Extract the complete mathematical equation skeleton from the function body.
         """
         try:
             function_str = str(programs)
             lines = function_str.split('\n')
             
-            # Find lines that contain the main equation logic
-            equation_lines = []
+            # Extract the complete function body excluding header
+            equation_skeleton = []
+            inside_function = False
+            indent_level = None
+            
             for line in lines:
                 stripped = line.strip()
-                if stripped and not stripped.startswith('#') and not stripped.startswith('"""') and not stripped.startswith('def ') and not stripped.startswith('return '):
-                    # Skip imports, docstrings, function definitions
-                    if not any(keyword in stripped for keyword in ['import ', 'Args:', 'Returns:', 'Return:', 'torch.Tensor']):
-                        equation_lines.append(stripped)
+                
+                # Skip function definition line
+                if stripped.startswith('def ') and 'equation(' in stripped:
+                    inside_function = True
+                    continue
+                    
+                if inside_function and stripped:
+                    # Determine the base indentation level from the first non-empty line
+                    if indent_level is None and line.lstrip() != line:
+                        indent_level = len(line) - len(line.lstrip())
+                    
+                    # Skip docstrings and comments
+                    if (stripped.startswith('"""') or stripped.startswith("'''") or 
+                        stripped.startswith('#') or stripped.startswith('Args:') or 
+                        stripped.startswith('Returns:') or stripped.startswith('Return:')):
+                        continue
+                    
+                    # Include meaningful code lines
+                    if (not stripped.startswith('import ') and 
+                        not stripped.startswith('from ') and
+                        stripped not in ['', '"""', "'''"]):
+                        
+                        # Remove the base indentation to make it cleaner
+                        if indent_level and line.startswith(' ' * indent_level):
+                            clean_line = line[indent_level:]
+                        else:
+                            clean_line = line.lstrip()
+                            
+                        equation_skeleton.append(clean_line)
             
-            # Get the return statement
-            return_line = None
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith('return '):
-                    return_line = stripped.replace('return ', '')
-                    break
-            
-            if return_line:
-                return return_line
-            elif equation_lines:
-                # If no explicit return, take the last meaningful line
-                return equation_lines[-1]
+            if equation_skeleton:
+                # Join the skeleton lines
+                skeleton_str = '\n'.join(equation_skeleton)
+                
+                # If it's just a simple return statement, extract the expression
+                if len(equation_skeleton) == 1 and equation_skeleton[0].startswith('return '):
+                    return equation_skeleton[0].replace('return ', '').strip()
+                else:
+                    # Return the complete skeleton for complex functions
+                    return skeleton_str
             else:
-                return f"equation_v{programs.global_sample_nums}"
+                return f"equation_v{programs.global_sample_nums if programs.global_sample_nums else 0}"
                 
         except Exception as e:
-            return f"equation_v{programs.global_sample_nums}"
+            logging.warning(f"Failed to extract equation body: {e}")
+            return f"equation_v{programs.global_sample_nums if programs.global_sample_nums else 0}"
     
     def register_function(self, programs: code_manipulation.Function):
         if self._max_log_nums is not None and self._num_samples >= self._max_log_nums:
@@ -128,10 +165,15 @@ class Profiler:
     def _record_and_verbose(self, sample_orders: int):
         function = self._all_sampled_functions[sample_orders]
         function_str = str(function).strip('\n')
+        equation_skeleton = self._extract_equation_body(function)
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
         score = function.score
         print(f'================= Evaluated Function =================')
+        print(f'Equation Skeleton:')
+        print(f'{equation_skeleton}')
+        print(f'------------------------------------------------------')
+        print(f'Full Function:')
         print(f'{function_str}')
         print(f'------------------------------------------------------')
         print(f'Score        : {str(score)}')
@@ -144,6 +186,7 @@ class Profiler:
             print(f'Top 3 scores :')
             for i, entry in enumerate(self._top_3_scores):
                 print(f'  Rank {i+1}: Score={entry["score"]:.6f}, Sample={entry["sample_order"]}')
+                print(f'    Equation: {entry["function"]}')
         else:
             print(f'Top 3 scores : []')
         print(f'======================================================\n\n')
